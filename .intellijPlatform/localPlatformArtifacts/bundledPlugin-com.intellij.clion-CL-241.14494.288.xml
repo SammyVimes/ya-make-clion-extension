@@ -1,0 +1,18 @@
+<ivy-module version="2.0">
+  <info organisation="bundledPlugin" module="com.intellij.clion" revision="CL-241.14494.288"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="clion-ide" ext="jar" conf="default" url="plugins/clion-ide/lib"/>
+  </publications>
+  <dependencies>
+    <dependency org="bundledPlugin" name="com.intellij.cidr.base" rev="CL-241.14494.288"/>
+    <dependency org="bundledPlugin" name="com.intellij.cidr.lang" rev="CL-241.14494.288"/>
+    <dependency org="bundledPlugin" name="Docker" rev="CL-241.14494.288"/>
+    <dependency org="bundledPlugin" name="com.intellij.cidr.lang" rev="CL-241.14494.288"/>
+    <dependency org="bundledPlugin" name="training" rev="CL-241.14494.288"/>
+    <dependency org="bundledPlugin" name="com.intellij.cidr.lang.clangd" rev="CL-241.14494.288"/>
+    <dependency org="bundledPlugin" name="com.intellij.cidr.lang.clangdBridge" rev="CL-241.14494.288"/>
+  </dependencies>
+</ivy-module>
