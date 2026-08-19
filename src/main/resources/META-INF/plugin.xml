@@ -1,35 +1,66 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
     <id>com.github.sammyvimes.yamakeplugin</id>
-
-    <!-- Public plugin name should be written in Title Case.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
-    <name>Yamakeplugin</name>
-
-    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <name>Ya Make</name>
     <vendor url="https://senyarobot.duckdns.org">SenyaRobot</vendor>
 
-    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
-    Yandex YaTool plugin for C/C++ projects.
-  ]]></description>
+      Native Ya Make project, code generation, build, test, and debug integration for CLion.
+    ]]></description>
 
-    <!-- Product and plugin compatibility requirements.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.clion</depends>
+    <depends>com.intellij.nativeDebug</depends>
+    <depends>com.intellij.clion-compdb</depends>
+    <depends>org.jetbrains.plugins.clion.radler</depends>
 
-    <!-- Extension points defined by the plugin.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <configurationType implementation="com.github.sammyvimes.yamakeplugin.YaUnitTestRunConfigurationType"/>
-        <configurationType implementation="com.github.sammyvimes.yamakeplugin.YaGenerateCompileCommandsConfigurationType"/>
-        <runConfigurationProducer implementation="com.github.sammyvimes.yamakeplugin.YaUnitTestRunConfigurationProducer"/>
-        <runLineMarkerContributor language="ObjectiveC" implementationClass="com.github.sammyvimes.yamakeplugin.YaUnitTestLineMarkerContributor"/>
-        <applicationConfigurable instance="com.github.sammyvimes.yamakeplugin.YaPluginSettingsConfigurable" displayName="Ya Plugin Settings"/>
-        <editorNotificationProvider implementation="com.github.sammyvimes.yamakeplugin.YaMakeEditorNotification"/>
-        <stepsBeforeRunProvider implementation="com.github.sammyvimes.yamakeplugin.YaMakeBeforeTestRunTaskProvider"/>
-        <treeStructureProvider implementation="com.github.sammyvimes.yamakeplugin.YaCodeGenHider"/>
+        <projectConfigurable
+            parentId="build"
+            id="YaMake.Settings"
+            displayName="Ya Make"
+            nonDefaultProject="true"
+            instance="com.github.sammyvimes.yamakeplugin.YaPluginSettingsConfigurable"/>
+        <runConfigurationProducer
+            implementation="com.github.sammyvimes.yamakeplugin.YaUnitTestRunConfigurationProducer"/>
+        <runLineMarkerContributor
+            language="C++"
+            implementationClass="com.github.sammyvimes.yamakeplugin.YaUnitTestRunLineMarkerContributor"/>
+        <editorNotificationProvider
+            implementation="com.github.sammyvimes.yamakeplugin.YaMakeEditorNotification"/>
+        <stepsBeforeRunProvider
+            implementation="com.github.sammyvimes.yamakeplugin.YaPrepareTestBeforeRunTaskProvider"/>
+        <treeStructureProvider
+            implementation="com.github.sammyvimes.yamakeplugin.YaCodeGenHider"/>
+        <notificationGroup id="Ya Make" displayType="BALLOON"/>
+        <editorFactoryListener
+            implementation="com.github.sammyvimes.yamakeplugin.YaRunMarkerDeduplicator"/>
+        <!-- TEMP: diagnostics for the duplicate-gutter investigation; remove afterwards. -->
+        <editorFactoryListener
+            implementation="com.github.sammyvimes.yamakeplugin.YaGutterDebugEditorFactoryListener"/>
     </extensions>
+
+    <extensions defaultExtensionNs="cidr.debugger">
+        <debugProcessConfigurator
+            implementation="com.github.sammyvimes.yamakeplugin.YaDebugProcessConfigurator"/>
+    </extensions>
+
+    <actions>
+        <action
+            id="YaMake.RefreshProject"
+            class="com.github.sammyvimes.yamakeplugin.YaRefreshProjectAction"
+            text="Refresh Ya C++ Project"
+            description="Run Ya code generation and refresh compile_commands.json"
+            icon="AllIcons.Actions.Refresh">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <!-- TEMP: diagnostics for the duplicate-gutter investigation; remove afterwards. -->
+        <action
+            id="YaMake.DumpLineMarkers"
+            class="com.github.sammyvimes.yamakeplugin.YaDumpLineMarkersAction"
+            text="Ya Make: Dump Line Markers (Debug)"
+            description="Dump backend line markers of the focused editor to idea.log and clipboard">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+
+    <idea-version since-build="261" until-build="261.*"/>
 </idea-plugin>

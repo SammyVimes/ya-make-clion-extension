@@ -1,7 +1,10 @@
+import org.jetbrains.intellij.platform.gradle.tasks.aware.SplitModeAware
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.9.25"
-    id("org.jetbrains.intellij.platform") version "2.3.0"
+    id("org.jetbrains.kotlin.jvm") version "2.3.20"
+    id("org.jetbrains.intellij.platform") version "2.16.0"
 }
 
 group = "com.github.sammyvimes"
@@ -11,15 +14,30 @@ repositories {
     mavenCentral()
     intellijPlatform {
         defaultRepositories()
+        localPlatformArtifacts()
+    }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
 // Configure Gradle IntelliJ Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+
     intellijPlatform {
-        clion("2024.1")
-        bundledPlugins("com.intellij.clion", "com.intellij.cidr.lang","com.intellij.cidr.base", "com.intellij.nativeDebug")
+        local("/Applications/CLion.app")
+        bundledPlugins(
+            "com.intellij.platform.images",
+            "com.intellij.clion",
+            "com.intellij.nativeDebug",
+            "com.intellij.clion-compdb",
+            "org.jetbrains.plugins.clion.radler",
+        )
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
 
         // Add necessary plugin dependencies for compilation here, example:
@@ -28,10 +46,19 @@ dependencies {
 }
 
 intellijPlatform {
+    splitMode = true
+    pluginInstallationTarget = SplitModeAware.PluginInstallationTarget.BACKEND
+
     pluginConfiguration {
         changeNotes = """
       Initial version
     """.trimIndent()
+    }
+
+    pluginVerification {
+        ides {
+            local("/Applications/CLion.app")
+        }
     }
 }
 
@@ -42,6 +69,61 @@ tasks {
         targetCompatibility = "17"
     }
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "17"
+        compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }
+    patchPluginXml {
+        sinceBuild.set("261")
+        untilBuild.set("261.*")
+    }
+}
+
+// Uploads the freshly built plugin jar to the remote-dev host, keeping the
+// previous jar as a rollback copy. The remote backend picks the new jar up on
+// its next start (reconnect from Gateway / JetBrains Client).
+// Overrides: -PremoteHost=... -PremotePluginsDir=... -PremotePluginJarName=...
+abstract class DeployPluginToRemoteTask : DefaultTask() {
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @get:InputFile
+    abstract val pluginJar: RegularFileProperty
+
+    @get:Input
+    abstract val host: Property<String>
+
+    // Relative to the remote home directory (avoids ~ quoting pitfalls).
+    @get:Input
+    abstract val pluginsDir: Property<String>
+
+    @get:Input
+    abstract val jarName: Property<String>
+
+    @TaskAction
+    fun deploy() {
+        val jar = pluginJar.get().asFile
+        val dir = pluginsDir.get().trimEnd('/')
+        val name = jarName.get()
+        execOperations.exec {
+            commandLine("scp", "-o", "BatchMode=yes", jar.absolutePath, "${host.get()}:$dir/$name.uploading")
+        }
+        execOperations.exec {
+            commandLine(
+                "ssh", "-o", "BatchMode=yes", host.get(),
+                "cd '$dir' && if [ -f '$name' ]; then mv -f '$name' '$name.previous'; fi && mv '$name.uploading' '$name'",
+            )
+        }
+        logger.lifecycle(
+            "Deployed ${jar.name} to ${host.get()}:$dir/$name " +
+                "(previous kept as $name.previous). Restart the remote backend to pick it up.",
+        )
+    }
+}
+
+tasks.register<DeployPluginToRemoteTask>("deployPluginToRemote") {
+    group = "intellij platform"
+    description = "Update plugin.jar on the remote dev host (rotates the old jar to plugin.jar.previous)"
+    pluginJar.set(tasks.named<org.gradle.jvm.tasks.Jar>("composedJar").flatMap { it.archiveFile })
+    host.set(providers.gradleProperty("remoteHost").orElse("senya-ivm"))
+    pluginsDir.set(providers.gradleProperty("remotePluginsDir").orElse(".local/share/JetBrains/CLion2026.1"))
+    jarName.set(providers.gradleProperty("remotePluginJarName").orElse("plugin.jar"))
 }

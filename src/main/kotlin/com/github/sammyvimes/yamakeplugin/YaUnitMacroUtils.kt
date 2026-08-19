@@ -1,63 +1,44 @@
 package com.github.sammyvimes.yamakeplugin
 
-import com.intellij.ide.projectView.ProjectView
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.runWriteAction
-import com.intellij.openapi.module.ModuleManager
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ContentEntry
-import com.intellij.openapi.roots.ModifiableRootModel
-import com.intellij.openapi.roots.ModuleRootManager
-import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.psi.PsiElement
-import com.intellij.psi.impl.source.tree.ForeignLeafPsiElement
-import com.intellij.psi.impl.source.tree.LeafPsiElement
-import com.jetbrains.cidr.lang.psi.OCMacroCall
-import com.jetbrains.cidr.lang.psi.visitors.OCVisitor
-import com.jetbrains.cidr.lang.util.OCElementUtil
-import java.io.File
 
-fun getYaUnitTestMacro(element: PsiElement): OCMacroCall? {
-    if (element !is LeafPsiElement) {
-        return null
-    }
+private const val YA_UNIT_TEST_MACRO = "Y_UNIT_TEST"
+private val YA_UNIT_TEST_PATTERN = Regex(
+    """Y_UNIT_TEST\s*\(\s*([A-Za-z_][A-Za-z0-9_:]*)\s*\)""",
+)
+private val YA_UNIT_TEST_SUITE_PATTERN = Regex(
+    """Y_UNIT_TEST_SUITE\s*\(\s*([A-Za-z_][A-Za-z0-9_:]*)\s*\)""",
+)
 
-    val name: String? = OCElementUtil.getElementType(element.node).toString()
+internal data class YaUnitTestCall(
+    val testName: String,
+    val fullName: String,
+)
 
-    if ("IDENTIFIER" != name) {
-        return null
-    }
+fun getYaUnitTestMacro(element: PsiElement): PsiElement? {
+    if (element.firstChild != null || element.text != YA_UNIT_TEST_MACRO) return null
+    val fileText = element.containingFile?.text ?: return null
+    return element.takeIf { findYaUnitTestCall(fileText, element.textOffset) != null }
+}
 
-    val parent: PsiElement? = element.parent
+fun getYaUnitTestName(element: PsiElement): String? {
+    val fileText = element.containingFile?.text ?: return null
+    return findYaUnitTestCall(fileText, element.textOffset)?.testName
+}
 
-    if (parent == null) {
-        return null
-    }
+fun getYaUnitTestFullName(element: PsiElement): String? {
+    val fileText = element.containingFile?.text ?: return null
+    return findYaUnitTestCall(fileText, element.textOffset)?.fullName
+}
 
-    val grandpa = parent.parent
-    if (grandpa == null) {
-        return null
-    }
-
-    var macro: OCMacroCall? = null
-    grandpa.accept(object : OCVisitor() {
-        override fun visitMacroCall(call: OCMacroCall) {
-            if (call.firstChild != null) {
-                if ("Y_UNIT_TEST" == call.firstChild.text) {
-                    macro = call
-                } else if (call.firstChild.firstChild != null) {
-                    if ("Y_UNIT_TEST" == call.firstChild.firstChild.text) {
-                        macro = call
-                    }
-                }
-            }
-        }
-    })
-
-    if (macro == null) {
-        return null
-    }
-
-    return macro
+internal fun findYaUnitTestCall(fileText: String, offset: Int): YaUnitTestCall? {
+    if (offset !in 0..fileText.length) return null
+    val test = YA_UNIT_TEST_PATTERN.find(fileText, offset)
+        ?.takeIf { it.range.first == offset }
+        ?: return null
+    val testName = test.groupValues[1]
+    val prefix = fileText.substring(0, offset)
+    val suiteName = YA_UNIT_TEST_SUITE_PATTERN.findAll(prefix).lastOrNull()?.groupValues?.get(1)
+    val fullName = if (suiteName.isNullOrBlank()) testName else "$suiteName::$testName"
+    return YaUnitTestCall(testName, fullName)
 }

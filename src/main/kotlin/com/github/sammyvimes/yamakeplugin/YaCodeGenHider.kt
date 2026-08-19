@@ -8,7 +8,6 @@ import com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.getProjectDataPath
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
@@ -28,7 +27,7 @@ class YaCodeGenHider : TreeStructureProvider {
         if (parent.value !is Project && parent.value !is Module) return grouped
 
         // Collect all known generated folders
-        val codegenPath = project.getProjectDataPath("yacodegen").toAbsolutePath().toString()
+        val codegenPath = YaProjectSettings.getInstance(project).codegenPath().toAbsolutePath().toString()
 
         val fileSystem = LocalFileSystem.getInstance()
 
@@ -57,7 +56,7 @@ class YaCodeGenHider : TreeStructureProvider {
 
     private fun shouldHide(file: VirtualFile, project: Project?): Boolean {
         if (project == null) return false
-        val codegenPath = project.getProjectDataPath("yacodegen").toAbsolutePath().toString()
+        val codegenPath = YaProjectSettings.getInstance(project).codegenPath().toAbsolutePath().toString()
         return file.path.startsWith(codegenPath)
     }
 }
@@ -69,17 +68,18 @@ class CodegenRootNode(
 ) : ProjectViewNode<String>(project, "Codegen", viewSettings) {
 
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
-        return listOf(PsiDirectoryNode(myProject, PsiManager.getInstance(myProject).findDirectory(folder)!!, settings))
+        val directory = PsiManager.getInstance(myProject).findDirectory(folder) ?: return emptyList()
+        return listOf(PsiDirectoryNode(myProject, directory, settings))
     }
 
     override fun contains(file: VirtualFile): Boolean {
         return VfsUtilCore.isAncestor(folder, file, false)
     }
 
-    override fun getName() = "Codegen"
+    override fun getName() = "[codegen]"
 
     override fun update(presentation: PresentationData) {
-        presentation.presentableText = "Codegen"
+        presentation.presentableText = "[codegen]"
     }
 
     override fun getVirtualFile(): VirtualFile? = null

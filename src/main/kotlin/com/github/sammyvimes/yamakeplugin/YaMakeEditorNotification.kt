@@ -1,74 +1,46 @@
 package com.github.sammyvimes.yamakeplugin
 
-import com.intellij.execution.ProgramRunnerUtil
-import com.intellij.execution.RunManager
-import com.intellij.execution.configurations.ConfigurationType
-import com.intellij.execution.executors.DefaultRunExecutor
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileEditor
-import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotificationPanel
-import com.intellij.ui.EditorNotifications
-import com.intellij.openapi.fileTypes.FileTypeManager
-import com.intellij.openapi.vfs.VfsUtil
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.ui.EditorNotificationProvider
 import com.intellij.util.ui.JBUI
-import java.awt.Color
+import java.nio.file.Paths
 import java.util.function.Function
 import javax.swing.JComponent
 
 class YaMakeEditorNotification : EditorNotificationProvider {
-
     override fun collectNotificationData(
         project: Project,
-        file: VirtualFile
+        file: VirtualFile,
     ): Function<in FileEditor, out JComponent?>? {
         if (file.name != "ya.make") return null
 
-        return Function { fileEditor ->
-            val currentYaMake = YaSettings.getInstance().state.currentYaMake
+        return Function {
+            val settings = YaProjectSettings.getInstance(project)
+            val target = Paths.get(file.parent.path).toAbsolutePath().normalize()
+            val isSelected = settings.selectedTarget() == target
+            val panel = EditorNotificationPanel(
+                if (isSelected) {
+                    JBUI.CurrentTheme.NotificationInfo.backgroundColor()
+                } else {
+                    JBUI.CurrentTheme.NotificationWarning.backgroundColor()
+                },
+            )
 
-            if (currentYaMake != file.path) {
-                val panel = EditorNotificationPanel(JBUI.CurrentTheme.NotificationWarning.backgroundColor())
-
-                panel.text = "Currently unused ya.make file"
-                panel.createActionLabel("Select this as current") {
-                    YaSettings.getInstance().state.currentYaMake = file.path
-                    EditorNotifications.getInstance(project).updateNotifications(file)
+            if (isSelected) {
+                panel.text = "Current Ya C++ index target"
+                panel.createActionLabel("Refresh code model") {
+                    YaProjectRefreshService.getInstance(project).refresh(target)
                 }
-
-                panel
             } else {
-                val panel = EditorNotificationPanel(JBUI.CurrentTheme.NotificationInfo.backgroundColor())
-
-                panel.text = "This is the current ya.make file"
-                panel.createActionLabel("Run code generation") {
-                    runYaGenerate(project, file, YaCommandType.CODEGEN)
+                panel.text = "This ya.make is not the current C++ index target"
+                panel.createActionLabel("Use target and refresh") {
+                    YaProjectRefreshService.getInstance(project).refresh(target)
                 }
-                panel.createActionLabel("Generate compile_commands.json") {
-                    runYaGenerate(project, file, YaCommandType.COMPILE_COMMANDS)
-                }
-
-                panel
             }
+            panel
         }
-    }
-
-    private fun runYaGenerate(project: Project, yaMakeFile: VirtualFile, yaCommandType: YaCommandType) {
-        val configurationType = ConfigurationType.CONFIGURATION_TYPE_EP
-            .findExtension(YaGenerateCompileCommandsConfigurationType::class.java) ?: return
-
-        val factory = configurationType.configurationFactories[0]
-        val configuration: YaGenerateCompileCommandsConfiguration = factory.createTemplateConfiguration(project) as YaGenerateCompileCommandsConfiguration
-        configuration.yaMakeFilePath = yaMakeFile.parent.path
-        configuration.type = yaCommandType
-
-        val runnerSettings = RunManager.getInstance(project)
-            .createConfiguration(configuration, factory)
-
-        ProgramRunnerUtil.executeConfiguration(runnerSettings, DefaultRunExecutor.getRunExecutorInstance())
     }
 }
