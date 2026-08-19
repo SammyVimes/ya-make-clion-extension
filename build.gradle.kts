@@ -4,13 +4,14 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.3.20"
-    id("org.jetbrains.intellij.platform") version "2.16.0"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
 val pluginVersion = providers.gradleProperty("pluginVersion").orElse("1.0-SNAPSHOT")
-val platformVersion = providers.gradleProperty("platformVersion").orElse("2026.1.4")
+// The pinned compile/test API. Set useLocalPlatform=true to use localPlatformPath instead.
+val platformVersion = providers.gradleProperty("platformVersion").orElse("2026.2.1")
 val localPlatformPath = providers.gradleProperty("localPlatformPath").orElse("/Applications/CLion.app")
-val useLocalPlatform = providers.gradleProperty("useLocalPlatform").map(String::toBoolean).orElse(true)
+val useLocalPlatform = providers.gradleProperty("useLocalPlatform").map(String::toBoolean).orElse(false)
 
 group = "com.github.sammyvimes"
 version = pluginVersion.get()
@@ -25,7 +26,7 @@ repositories {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -74,15 +75,15 @@ intellijPlatform {
 tasks {
     // Set the JVM compatibility versions
     withType<JavaCompile> {
-        sourceCompatibility = "21"
-        targetCompatibility = "21"
+        sourceCompatibility = "25"
+        targetCompatibility = "25"
     }
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+        compilerOptions.jvmTarget.set(JvmTarget.JVM_25)
     }
     patchPluginXml {
-        sinceBuild.set("261")
-        untilBuild.set("261.*")
+        sinceBuild.set("262")
+        untilBuild.set("262.*")
     }
 }
 
