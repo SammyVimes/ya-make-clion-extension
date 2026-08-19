@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Calculate release version
+        id: release
+        run: echo "version=$(date -u +'%Y.%m.%d')-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build plugin
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: >-
+          ./gradlew clean test buildPlugin
+          -Dorg.gradle.java.home="$JAVA_HOME"
+          -PuseLocalPlatform=false
+          -PpluginVersion="$RELEASE_VERSION"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: >-
+          gh release create "$RELEASE_VERSION"
+          build/distributions/*.zip
+          --target "$GITHUB_SHA"
+          --title "$RELEASE_VERSION"
+          --notes "Automated release for commit $GITHUB_SHA."

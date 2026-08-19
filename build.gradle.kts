@@ -7,8 +7,13 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.16.0"
 }
 
+val pluginVersion = providers.gradleProperty("pluginVersion").orElse("1.0-SNAPSHOT")
+val platformVersion = providers.gradleProperty("platformVersion").orElse("2026.1.4")
+val localPlatformPath = providers.gradleProperty("localPlatformPath").orElse("/Applications/CLion.app")
+val useLocalPlatform = providers.gradleProperty("useLocalPlatform").map(String::toBoolean).orElse(true)
+
 group = "com.github.sammyvimes"
-version = "1.0-SNAPSHOT"
+version = pluginVersion.get()
 
 repositories {
     mavenCentral()
@@ -20,7 +25,7 @@ repositories {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
 
@@ -30,7 +35,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 
     intellijPlatform {
-        local("/Applications/CLion.app")
+        if (useLocalPlatform.get()) {
+            local(localPlatformPath.get())
+        } else {
+            create("CL", platformVersion)
+        }
         bundledPlugins(
             "com.intellij.platform.images",
             "com.intellij.clion",
@@ -57,7 +66,7 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            local("/Applications/CLion.app")
+            current()
         }
     }
 }
@@ -65,11 +74,11 @@ intellijPlatform {
 tasks {
     // Set the JVM compatibility versions
     withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+        sourceCompatibility = "21"
+        targetCompatibility = "21"
     }
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
     }
     patchPluginXml {
         sinceBuild.set("261")
