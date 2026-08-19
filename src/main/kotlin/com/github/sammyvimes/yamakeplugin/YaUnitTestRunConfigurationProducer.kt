@@ -5,6 +5,7 @@ import com.intellij.execution.actions.ConfigurationContext
 import com.intellij.execution.actions.ConfigurationFromContext
 import com.intellij.execution.actions.LazyRunConfigurationProducer
 import com.intellij.execution.configurations.ConfigurationFactory
+import com.intellij.execution.configurations.ConfigurationTypeUtil
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.progress.ProgressIndicator
@@ -86,7 +87,8 @@ class YaUnitTestRunConfigurationProducer : LazyRunConfigurationProducer<CLionExt
     }
 
     override fun getConfigurationFactory(): ConfigurationFactory =
-        CLionExternalRunConfigurationType.getInstance().configurationFactories.first()
+        ConfigurationTypeUtil.findConfigurationType(CLionExternalRunConfigurationType::class.java)
+            .configurationFactories.first()
 
     internal fun configureResolvedTest(
         configuration: CLionExternalRunConfiguration,

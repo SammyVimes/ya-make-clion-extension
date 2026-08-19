@@ -1,6 +1,7 @@
 package com.github.sammyvimes.yamakeplugin
 
 import com.intellij.codeInsight.CodeInsightSettings
+import com.intellij.execution.configurations.ConfigurationTypeUtil
 import com.intellij.execution.RunManagerEx
 import com.intellij.execution.actions.ConfigurationContext
 import com.intellij.execution.lineMarker.ExecutorAction
@@ -92,7 +93,8 @@ class YaUnitTestRunConfigurationProducerTest : BasePlatformTestCase() {
     }
 
     fun testResolvedConfigurationRunsPreparedBinaryDirectly() {
-        val factory = CLionExternalRunConfigurationType.getInstance().configurationFactories.first()
+        val factory = ConfigurationTypeUtil.findConfigurationType(CLionExternalRunConfigurationType::class.java)
+            .configurationFactories.first()
         val configuration = factory.createTemplateConfiguration(project) as CLionExternalRunConfiguration
         val metadata = YaTestMetadata(
             targetPath = Paths.get("/arcadia/ydb/example/ut"),
